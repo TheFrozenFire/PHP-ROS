@@ -1,0 +1,227 @@
+--
+-- Table structure for table `client_details`
+--
+
+DROP TABLE IF EXISTS `client_details`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `client_details` (
+  `id` mediumint(8) unsigned UNIQUE DEFAULT NULL,
+  `street_address` text,
+  `city` text,
+  `region` text,
+  `country` text,
+  `home_phone` text,
+  `cell_phone` text,
+  `email` text,
+  KEY `id` (`id`),
+  CONSTRAINT `client_details_ibfk_1` FOREIGN KEY (`id`) REFERENCES `clients` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `clients`
+--
+
+DROP TABLE IF EXISTS `clients`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `clients` (
+  `id` mediumint(8) unsigned NOT NULL AUTO_INCREMENT,
+  `last_name` text NOT NULL,
+  `first_name` text NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `reservation_comments`
+--
+
+DROP TABLE IF EXISTS `reservation_comments`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `reservation_comments` (
+  `id` mediumint(8) unsigned NOT NULL AUTO_INCREMENT,
+  `res_id` mediumint(8) unsigned DEFAULT NULL,
+  `comment` text NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `res_id` (`res_id`),
+  CONSTRAINT `reservation_comments_ibfk_1` FOREIGN KEY (`res_id`) REFERENCES `reservations` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `reservations`
+--
+
+DROP TABLE IF EXISTS `reservations`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `reservations` (
+  `id` mediumint(8) unsigned NOT NULL AUTO_INCREMENT,
+  `client_id` mediumint(8) unsigned DEFAULT NULL,
+  `open_date` date NOT NULL,
+  `close_date` date NOT NULL,
+  `made_date` date NOT NULL,
+  `room_id` mediumint(8) unsigned DEFAULT NULL,
+  `status` enum('due','in','out') NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `client_id` (`client_id`),
+  KEY `room_id` (`room_id`),
+  CONSTRAINT `reservations_ibfk_1` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `reservations_ibfk_2` FOREIGN KEY (`room_id`) REFERENCES `rooms` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `rooms`
+--
+
+DROP TABLE IF EXISTS `rooms`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `rooms` (
+  `id` mediumint(8) unsigned NOT NULL AUTO_INCREMENT,
+  `name` text NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Triggers
+--
+
+CREATE TRIGGER newClient AFTER INSERT ON `clients` FOR EACH ROW INSERT INTO `client_details` (`id`) VALUES (NEW.`id`);
+
+--
+-- Stored Routines
+--
+
+DROP PROCEDURE IF EXISTS `getClientInfo`;
+DELIMITER //
+CREATE PROCEDURE getClientInfo (IN clientID MEDIUMINT UNSIGNED) READS SQL DATA
+	BEGIN
+		SELECT * FROM `clients` WHERE `id` = clientID;
+	END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `getClientDetails`;
+DELIMITER //
+CREATE PROCEDURE getClientDetails (IN clientID MEDIUMINT UNSIGNED) READS SQL DATA
+	BEGIN
+		SELECT * FROM `client_data` WHERE `id` = clientID;
+	END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `searchClients`;
+DELIMITER //
+CREATE PROCEDURE searchClients (IN lastName TEXT, IN firstName TEXT) READS SQL DATA
+	BEGIN
+		SELECT * FROM `clients` WHERE `last_name` LIKE concat('%', lastName, '%') AND `first_name` LIKE concat('%', firstName, '%');
+	END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `addClient`;
+DELIMITER //
+CREATE PROCEDURE addClient (IN lastName TEXT, IN firstName TEXT) MODIFIES SQL DATA
+	BEGIN
+		INSERT INTO `clients` (`last_name`, `first_name`) VALUES (lastName, firstName);
+	END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `modifyClient`;
+DELIMITER //
+CREATE PROCEDURE modifyClient (IN clientID MEDIUMINT UNSIGNED, IN lastName TEXT, IN firstName TEXT) MODIFIES SQL DATA
+	BEGIN
+		UPDATE `clients` SET `last_name` = lastName, `first_name` = firstName WHERE `id` = clientID;
+	END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `getReservationInfo`;
+DELIMITER //
+CREATE PROCEDURE getReservationInfo (IN reservationID MEDIUMINT UNSIGNED) READS SQL DATA
+	BEGIN
+		SELECT * FROM `reservations` WHERE `id` = reservationID;
+	END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `getReservationComments`;
+DELIMITER //
+CREATE PROCEDURE getReservationComments (IN reservationID MEDIUMINT UNSIGNED) READS SQL DATA
+	BEGIN
+		SELECT `id`, `comment` FROM `reservation_comments` WHERE `res_id` = reservationID;
+	END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `reservationCommentAdd`;
+DELIMITER //
+CREATE PROCEDURE reservationCommentAdd (IN reservationID MEDIUMINT UNSIGNED, IN reservationComment TEXT) MODIFIES SQL DATA
+	BEGIN
+		INSERT INTO `reservation_comments` (`res_id`, `comment`) VALUES (reservationID, reservationComment);
+	END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `reservationCommentRemove`;
+DELIMITER //
+CREATE PROCEDURE reservationCommentRemove (IN reservationID MEDIUMINT UNSIGNED) MODIFIES SQL DATA
+	BEGIN
+		DELETE FROM `reservation_comments` WHERE `id` = reservationID;
+	END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `getReservationsForDate`;
+DELIMITER //
+CREATE PROCEDURE getReservationsForDate (IN reservationDate DATE) READS SQL DATA
+	BEGIN
+		SELECT a.`id`, a.`status`, b.`last_name`, b.`first_name`, c.`name` FROM `reservations` a, `clients` b, `rooms` c WHERE a.`open_date` <= reservationDate AND a.`close_date` >= reservationDate AND b.`id` = a.`client_id` AND c.`id` = a.`room_id`;
+	END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `getReservationsForRange`;
+DELIMITER //
+CREATE PROCEDURE getReservationsForRange (IN startDate DATE, IN endDate DATE) READS SQL DATA
+	BEGIN
+		SELECT * FROM `reservations` WHERE `open_date` >= startDate AND `close_date` <= endDate;
+	END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `reservationAdd`;
+DELIMITER //
+CREATE PROCEDURE reservationAdd (IN openDate DATE, IN closeDate DATE, IN roomID MEDIUMINT UNSIGNED, IN clientID MEDIUMINT UNSIGNED) MODIFIES SQL DATA
+	BEGIN
+		INSERT INTO `reservations` (`open_date`, `close_date`, `made_date`, `client_id`, `room_id`) VALUES (openDate, closeDate, CURRENT_DATE(), clientID, roomID);
+	END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `reservationModify`;
+DELIMITER //
+CREATE PROCEDURE reservationModify (IN reservationID MEDIUMINT UNSIGNED, IN openDate DATE, IN closeDate DATE, IN roomID MEDIUMINT UNSIGNED, IN clientID MEDIUMINT UNSIGNED) MODIFIES SQL DATA
+	BEGIN
+		UPDATE `reservations` SET `open_date` = openDate, `close_date` = closeDate, `room_id` = roomID, `client_id` = clientID WHERE `id` = reservationID;
+	END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `reservationCheckIn`;
+DELIMITER //
+CREATE PROCEDURE reservationCheckIn (IN reservationID MEDIUMINT UNSIGNED) MODIFIES SQL DATA
+	BEGIN
+		UPDATE `reservations` SET `status` = 'in' WHERE `id` = reservationID;
+	END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `reservationCheckOut`;
+DELIMITER //
+CREATE PROCEDURE reservationCheckOut (IN reservationID MEDIUMINT UNSIGNED) MODIFIES SQL DATA
+	BEGIN
+		UPDATE `reservations` SET `status` = 'out' WHERE `id` = reservationID;
+	END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `getAvailableRoomsForDates`;
+DELIMITER //
+CREATE PROCEDURE getAvailableRoomsForDates (IN startDate DATE, IN endDate DATE) READS SQL DATA
+	BEGIN
+		SELECT `rooms`.* FROM `rooms` WHERE (SELECT count(*) FROM `reservations` WHERE `reservations`.`room_id` = `rooms`.`id` AND `reservations`.`open_date` <= startDate AND `reservations`.`close_date` >= endDate) = 0;
+	END//
+DELIMITER ;
